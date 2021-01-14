@@ -1,0 +1,6 @@
+FROM lavasoftware/lava-dispatcher:2020.12
+
+ENV container docker
+
+COPY scripts/telnet_delay.sh /root
+
