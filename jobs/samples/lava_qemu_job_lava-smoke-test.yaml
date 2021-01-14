@@ -1,0 +1,58 @@
+device_type: qemu
+job_name: qemu-amd64-wrlinux10.19
+timeouts:
+  job:
+    minutes: 10
+  action:
+    minutes: 2
+priority: medium
+visibility: public
+context:
+  arch: amd64
+  extra_options:
+  - --append "root=/dev/vda rw highres=off console=ttyS0 mem=256M"
+actions:
+- deploy:
+    timeout:
+      minutes: 5
+    to: tmpfs
+    images:
+      kernel:
+        image_arg: -kernel {kernel}
+        url: http://44.234.148.75/tmp/bzImage
+      rootfs:
+        image_arg: -drive format=raw,if=virtio,file={rootfs}
+        url: http://44.234.148.75/tmp/wrlinux-image-std-qemux86-64.ext4
+    os: debian
+    root_partition: 1
+- boot:
+    method: qemu
+    timeout:
+      minutes: 2
+    media: tmpfs
+    prompts:
+      - '[a-zA-Z0-9\-\_]+@[a-zA-Z0-9\-\_]+:.*?#'
+    auto_login:
+      login_prompt: "login:"
+      username: root
+- test:
+    timeout:
+      minutes: 5
+    definitions:
+    - repository:
+        metadata:
+          format: Lava-Test Test Definition 1.0
+          name: smoke-tests-basic
+          description: "Basic system test command for Linaro Ubuntu images"
+        run:
+          steps:
+          - printenv
+      from: inline
+      name: env-dut-inline
+      path: inline/env-dut.yaml
+    - repository: http://git.linaro.org/lava-team/lava-functional-tests.git
+      from: git
+      path: lava-test-shell/smoke-tests-net.yaml
+      name: smoke-tests-net
+      params:
+        USE_NC: 1
