@@ -1,0 +1,191 @@
+version: "3.4"
+services:
+  db:
+    image: ${DC_POSTGRES_IMAGE}
+    environment:
+      POSTGRES_USER: lavaserver
+      POSTGRES_PASSWORD: lavaserverdbpass
+    volumes:
+    - db-data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  lava-scheduler:
+    image: ${DC_SERVER_IMAGE}
+    volumes:
+    - device-types:/etc/lava-server/dispatcher-config/device-types:ro
+    - devices:/etc/lava-server/dispatcher-config/devices:ro
+    - health-checks:/etc/lava-server/dispatcher-config/health-checks:ro
+    - ./overlays/etc/lava-server/settings.d/01-database.yaml:/etc/lava-server/settings.d/01-database.yaml:ro
+    - ./overlays/etc/lava-server/settings.d/01-events.yaml:/etc/lava-server/settings.d/01-events.yaml:ro
+    - ./overlays/etc/lava-server/lava-scheduler:/etc/lava-server/lava-scheduler:ro
+    depends_on:
+    - db
+    environment:
+      SERVICES: "lava-scheduler"
+    restart: unless-stopped
+
+  lava-publisher:
+    image: ${DC_SERVER_IMAGE}
+    volumes:
+    - ./overlays/etc/lava-server/settings.d/01-database.yaml:/etc/lava-server/settings.d/01-database.yaml:ro
+    - ./overlays/etc/lava-server/settings.d/01-events.yaml:/etc/lava-server/settings.d/01-events.yaml:ro
+    - ./overlays/etc/lava-server/settings.d/02-publisher.yaml:/etc/lava-server/settings.d/02-publisher.yaml:ro
+    environment:
+      SERVICES: "lava-publisher"
+    ports:
+    - 5500:5500
+    - 8001:8001
+    restart: unless-stopped
+
+  lava-server:
+    image: ${DC_SERVER_IMAGE}
+    volumes:
+    - device-types:/etc/lava-server/dispatcher-config/device-types
+    - devices:/etc/lava-server/dispatcher-config/devices
+    - health-checks:/etc/lava-server/dispatcher-config/health-checks
+    - joboutput:/var/lib/lava-server/default/media/job-output
+    - ./overlays/etc/lava-server/settings.d/01-database.yaml:/etc/lava-server/settings.d/01-database.yaml:ro
+    - ./overlays/etc/lava-server/settings.d/01-events.yaml:/etc/lava-server/settings.d/01-events.yaml:ro
+    - ./overlays/etc/lava-server/settings.d/01-unsecure.yaml:/etc/lava-server/settings.d/01-unsecure.yaml:ro
+    - ./overlays/etc/lava-server/settings.d/02-autoregister.yaml:/etc/lava-server/settings.d/02-autoregister.yaml:ro
+    depends_on:
+    - db
+    - apache2
+    - lava-publisher
+    - lava-scheduler
+    environment:
+      SERVICES: "gunicorn"
+      BIND: "--bind lava-server:8000"
+      LAVA_ADMIN_USERNAME: "${DC_LAVA_ADMIN_USERNAME}"
+      LAVA_ADMIN_PASSWORD: "${DC_LAVA_ADMIN_PASSWORD}"
+    restart: unless-stopped
+
+  lava-coordinator:
+    image: ${DC_SERVER_IMAGE}
+    environment:
+      SERVICES: "lava-coordinator"
+    ports:
+    - 3079:3079
+    restart: unless-stopped
+
+  apache2:
+    image: ${DC_SERVER_IMAGE}
+    volumes:
+    - ./overlays/etc/apache2/sites-available/lava-server.conf:/etc/apache2/sites-available/lava-server.conf:ro
+    environment:
+      SERVICES: "apache2"
+    ports:
+    - 80:80
+    restart: unless-stopped
+
+  lava-dispatcher:
+    image: ${DC_DISPATCHER_IMAGE}
+    build:
+      context: ./dispatcher
+      args:
+        image: ${DC_DISPATCHER_IMAGE}
+        extra_packages: "linux-image-amd64 curl"
+    depends_on:
+    - lava-dispatcher-webserver
+    - lava-dispatcher-tftpd
+    - lava-dispatcher-ser2net
+    - lava-dispatcher-nfs
+    hostname: worker0
+    devices:
+    - /dev/kvm # needed for QEMU
+    - /dev/net/tun # needed for QEMU
+    security_opt:
+    - apparmor:unconfined # needed for usb mass storage
+    cap_add:
+    - NET_ADMIN # needed for QEMU
+    - SYS_ADMIN # needed for usb mass storage
+    environment:
+      WORKER_NAME: "--name=${DC_DISPATCHER_HOSTNAME}"
+      URL: "${DC_LAVA_SERVER_HOSTNAME}"
+      http_proxy: "${http_proxy}"
+      https_proxy: "${https_proxy}"
+      ftp_proxy: "${ftp_proxy}"
+    volumes:
+    - ./overlays/etc/lava-dispatcher/lava-worker:/etc/lava-dispatcher/lava-worker:ro
+    - /var/run/docker.sock:/var/run/docker.sock # allow to use docker inside this container
+    - /run/udev:/run/udev:ro # libudev expects it for udev events
+    - /sys/devices:/sys/devices # for udevadm trigger to work
+    - /boot:/boot:ro
+    - /lib/modules:/lib/modules:ro
+    - '/dev/bus:/dev/bus:ro' # required for USB devices
+    - '/dev/serial:/dev/serial:ro' # required for serial adapters
+    - '/dev/disk:/dev/disk:ro' # required for SDMux
+    - worker-state:/var/lib/lava/dispatcher/worker/
+    - worker-http:/var/lib/lava/dispatcher/tmp
+    - worker-tftp:/srv/tftp
+
+  lava-dispatcher-webserver:
+    image: httpd
+    volumes:
+    - ./httpd/httpd.conf:/usr/local/apache2/conf/httpd.conf:ro
+    ports:
+      - 80
+    volumes:
+      - worker-http:/var/lib/lava/dispatcher/tmp
+
+  lava-dispatcher-tftpd:
+    build:
+      context: ./tftpd
+    environment:
+      http_proxy: "${http_proxy}"
+      https_proxy: "${https_proxy}"
+      ftp_proxy: "${ftp_proxy}"
+    ports:
+        - 69:69/udp
+    volumes:
+      - worker-tftp:/srv/tftp
+
+  lava-dispatcher-ser2net:
+    build:
+      context: ./ser2net
+    environment:
+      http_proxy: "${http_proxy}"
+      https_proxy: "${https_proxy}"
+      ftp_proxy: "${ftp_proxy}"
+    privileged: true
+    volumes:
+      - '/dev/serial:/dev/serial' # required for serial adapters
+      - '/dev:/dev'
+    devices: []
+    ports:
+      - 7101:7101
+
+  lava-dispatcher-nfs:
+    build:
+      context: ./nfs
+    environment:
+      http_proxy: "${http_proxy}"
+      https_proxy: "${https_proxy}"
+      ftp_proxy: "${ftp_proxy}"
+    privileged: true
+    volumes:
+      - worker-http:/var/lib/lava/dispatcher/tmp
+    ports:
+      - 111:111
+      - 111:111/udp
+      - 2049:2049
+      - 2049:2049/udp
+      - 35543:35543
+
+volumes:
+  db-data:
+    name: lava-server-pgdata
+  device-types:
+    name: lava-server-device-types
+  devices:
+    name: lava-server-devices
+  health-checks:
+    name: lava-server-health-checks
+  joboutput:
+    name: lava-server-joboutput
+  worker-state:
+    name: lava-server-worker-state
+  worker-http:
+    name: lava-server-worker-http
+  worker-tftp:
+    name: lava-server-worker-tftp
