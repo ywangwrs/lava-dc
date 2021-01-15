@@ -24,11 +24,12 @@ COPY jobs/samples/* /root/jobs/
 
 # Temporarily fix the issue of context limitation which introduced from LAVA 2020.01
 COPY scripts/__init__.py /usr/lib/python3/dist-packages/lava_common/schemas/
+COPY scripts/rc.local /etc/
 
 # setup.sh run as a service
-COPY configs/lava-test.service /lib/systemd/system/
-WORKDIR /etc/systemd/system/multi-user.target.wants
-RUN ln -s /lib/systemd/system/lava-test.service ./lava-test.service
+#COPY configs/lava-test.service /lib/systemd/system/
+#WORKDIR /etc/systemd/system/multi-user.target.wants
+#RUN ln -s /lib/systemd/system/lava-test.service ./lava-test.service
 
 WORKDIR /root/jobs
 
