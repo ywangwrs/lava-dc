@@ -26,9 +26,9 @@ COPY jobs/samples/* /root/jobs/
 COPY scripts/__init__.py /usr/lib/python3/dist-packages/lava_common/schemas/
 
 # setup.sh run as a service
-#COPY configs/lava-test.service /lib/systemd/system/
-#WORKDIR /etc/systemd/system/multi-user.target.wants
-#RUN ln -s /lib/systemd/system/lava-test.service ./lava-test.service
+COPY configs/lava-test.service /lib/systemd/system/
+WORKDIR /etc/systemd/system/multi-user.target.wants
+RUN ln -s /lib/systemd/system/lava-test.service ./lava-test.service
 
 WORKDIR /root/jobs
 

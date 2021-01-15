@@ -126,6 +126,7 @@ services:
     - worker-state:/var/lib/lava/dispatcher/worker/
     - /opt/dispatcher:/var/lib/lava/dispatcher/tmp
     - worker-tftp:/srv/tftp
+    restart: on-failure
 
 #  lava-dispatcher-webserver:
 #    image: httpd
@@ -149,6 +150,7 @@ services:
         - 69:69/udp
     volumes:
       - worker-tftp:/srv/tftp
+    restart: on-failure
 
   lava-dispatcher-ser2net:
     build:
@@ -165,6 +167,7 @@ services:
     devices: []
     ports:
       - 7101:7101
+    restart: on-failure
 
   lava-dispatcher-nfs:
     build:
@@ -183,6 +186,7 @@ services:
       - 2049:2049
       - 2049:2049/udp
       - 35543:35543
+    restart: on-failure
 
 volumes:
   db-data:
