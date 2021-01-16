@@ -78,7 +78,7 @@ services:
     container_name: apache2
     volumes:
     - ./overlays/etc/apache2/sites-available/lava-server.conf:/etc/apache2/sites-available/lava-server.conf:ro
-    - /opt/dispatcher:/var/lib/lava/dispatcher/tmp
+    - /opt/rsync:/var/lib/lava/dispatcher/tmp
     environment:
       SERVICES: "apache2"
     ports:
