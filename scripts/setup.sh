@@ -15,14 +15,14 @@ if [[ "$AUTH_LIST" == *"No tokens found"* ]]; then
 fi
 
 # Add x86-64 QEMU devices
-lava-server manage device-types details aws-ec2_qemu-x86_64
+lava-server manage device-types details aws-ec2_qemu-x86_64 &> /dev/null
 if [[ $? != 0 ]]; then
     lava-server manage device-types add aws-ec2_qemu-x86_64
     lava-server manage devices add  --device-type aws-ec2_qemu-x86_64 --worker worker0 x86_64_aws-ec2_qemu01
 fi
 
 # Add LAVA original x86-64 QEMU devices
-lava-server manage device-types details qemu
+lava-server manage device-types details qemu &> /dev/null
 if [[ $? != 0 ]]; then
     lava-server manage device-types add qemu
     lava-server manage devices add  --device-type qemu --worker worker0 qemu-01
