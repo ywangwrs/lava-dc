@@ -19,10 +19,10 @@ actions:
     images:
       kernel:
         image_arg: -kernel {kernel}
-        url: http://44.234.148.75/tmp/bzImage
+        url: http://yow-lpdtest.wrs.com/tftpboot/qemux86-64/bzImage
       rootfs:
         image_arg: -drive format=raw,if=virtio,file={rootfs}
-        url: http://44.234.148.75/tmp/wrlinux-image-std-qemux86-64.ext4
+        url: http://yow-lpdtest.wrs.com/tftpboot/qemux86-64/wrlinux-image-std-qemux86-64.ext4
     os: debian
     root_partition: 1
 - boot:
