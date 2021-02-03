@@ -1,4 +1,4 @@
-FROM lavasoftware/lava-server:2020.12
+FROM lavasoftware/lava-server:2021.01
 
 ENV container docker
 
