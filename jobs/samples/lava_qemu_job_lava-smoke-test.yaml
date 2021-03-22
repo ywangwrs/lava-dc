@@ -24,7 +24,6 @@ actions:
         image_arg: -drive format=raw,if=virtio,file={rootfs}
         url: http://yow-lpdtest.wrs.com/tftpboot/qemux86-64/wrlinux-image-std-qemux86-64.ext4
     os: debian
-    root_partition: 1
 - boot:
     method: qemu
     timeout:
