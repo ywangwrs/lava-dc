@@ -26,20 +26,6 @@ services:
       SERVICES: "lava-scheduler"
     restart: unless-stopped
 
-  lava-publisher:
-    image: ${DC_SERVER_IMAGE}
-    container_name: lava-publisher
-    volumes:
-    - ./overlays/etc/lava-server/settings.d/01-database.yaml:/etc/lava-server/settings.d/01-database.yaml:ro
-    - ./overlays/etc/lava-server/settings.d/01-events.yaml:/etc/lava-server/settings.d/01-events.yaml:ro
-    - ./overlays/etc/lava-server/settings.d/02-publisher.yaml:/etc/lava-server/settings.d/02-publisher.yaml:ro
-    environment:
-      SERVICES: "lava-publisher"
-    ports:
-    - 5500:5500
-    - 8001:8001
-    restart: unless-stopped
-
   lava-server:
     image: ${DC_SERVER_IMAGE}
     container_name: lava-server
@@ -55,7 +41,6 @@ services:
     depends_on:
     - db
     - apache2
-    - lava-publisher
     - lava-scheduler
     environment:
       SERVICES: "gunicorn"
@@ -63,15 +48,6 @@ services:
       LAVA_ADMIN_USERNAME: "${DC_LAVA_ADMIN_USERNAME}"
       LAVA_ADMIN_PASSWORD: "${DC_LAVA_ADMIN_PASSWORD}"
     restart: unless-stopped
-
-#  lava-coordinator:
-#    image: ${DC_SERVER_IMAGE}
-#    container_name: lava-coordinator
-#    environment:
-#      SERVICES: "lava-coordinator"
-#    ports:
-#    - 3079:3079
-#    restart: unless-stopped
 
   apache2:
     image: ${DC_SERVER_IMAGE}
@@ -88,24 +64,10 @@ services:
   lava-dispatcher:
     image: ${DC_DISPATCHER_IMAGE}
     container_name: lava-dispatcher
-    build:
-      context: ./dispatcher
-      args:
-        image: ${DC_DISPATCHER_IMAGE}
-        extra_packages: "linux-image-amd64 curl"
-    depends_on:
-#    - lava-dispatcher-webserver
-    - lava-dispatcher-tftpd
-    - lava-dispatcher-ser2net
-    - lava-dispatcher-nfs
     hostname: worker0
-#    devices:
-#    - /dev/kvm # needed for QEMU
-#    - /dev/net/tun # needed for QEMU
     security_opt:
     - apparmor:unconfined # needed for usb mass storage
     cap_add:
-#    - NET_ADMIN # needed for QEMU
     - SYS_ADMIN # needed for usb mass storage
     environment:
       WORKER_NAME: "--name=${DC_DISPATCHER_HOSTNAME}"
@@ -120,72 +82,8 @@ services:
     - /sys/devices:/sys/devices # for udevadm trigger to work
     - /boot:/boot:ro
     - /lib/modules:/lib/modules:ro
-    - '/dev/bus:/dev/bus:ro' # required for USB devices
-    - '/dev/serial:/dev/serial:ro' # required for serial adapters
-    - '/dev/disk:/dev/disk:ro' # required for SDMux
     - worker-state:/var/lib/lava/dispatcher/worker/
     - /opt/dispatcher:/var/lib/lava/dispatcher/tmp
-    - worker-tftp:/srv/tftp
-    restart: on-failure
-
-#  lava-dispatcher-webserver:
-#    image: httpd
-#    container_name: httpd
-#    volumes:
-#    - ./httpd/httpd.conf:/usr/local/apache2/conf/httpd.conf:ro
-#    ports:
-#      - 80
-#    volumes:
-#      - /opt/dispatcher:/var/lib/lava/dispatcher/tmp
-
-  lava-dispatcher-tftpd:
-    build:
-      context: ./tftpd
-    container_name: lava-dispatcher-tftpd
-    environment:
-      http_proxy: "${http_proxy}"
-      https_proxy: "${https_proxy}"
-      ftp_proxy: "${ftp_proxy}"
-    ports:
-        - 69:69/udp
-    volumes:
-      - worker-tftp:/srv/tftp
-    restart: on-failure
-
-  lava-dispatcher-ser2net:
-    build:
-      context: ./ser2net
-    container_name: lava-dispatcher-ser2net
-    environment:
-      http_proxy: "${http_proxy}"
-      https_proxy: "${https_proxy}"
-      ftp_proxy: "${ftp_proxy}"
-    privileged: true
-    volumes:
-      - '/dev/serial:/dev/serial' # required for serial adapters
-      - '/dev:/dev'
-    devices: []
-    ports:
-      - 7101:7101
-    restart: on-failure
-
-  lava-dispatcher-nfs:
-    build:
-      context: ./nfs
-    container_name: lava-dispatcher-nfs
-    environment:
-      http_proxy: "${http_proxy}"
-      https_proxy: "${https_proxy}"
-      ftp_proxy: "${ftp_proxy}"
-    privileged: true
-    volumes:
-      - /opt/dispatcher:/var/lib/lava/dispatcher/tmp
-    ports:
-      - 111:111
-      - 111:111/udp
-      - 2049:2049
-      - 2049:2049/udp
-      - 35543:35543
     restart: on-failure
 
 volumes:
@@ -197,5 +95,3 @@ volumes:
     name: lava-server-joboutput
   worker-state:
     name: lava-server-worker-state
-  worker-tftp:
-    name: lava-server-worker-tftp
